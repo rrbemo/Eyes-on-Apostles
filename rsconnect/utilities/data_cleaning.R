@@ -16,43 +16,70 @@ print(event_types)
 #### Aggregate by location ####
 agg_by_location <- function(events_df)
 {
-  # Should we remove missing IDs?
-  # What is an EventType? Does it have any significance? 
-  agg_df <- events_df %>%
-    drop_na(ID, Date) %>%
-    mutate(Final_Species = ifelse(is.na(Final_Species), 
-                                  "Unknown",
-                                  Final_Species),
-           # Need to remove some extra letters so things match up. (H, G, F... specifically from Stockton Island)
-           Location = paste0(str_sub(str_replace_all(Location, "[[:digit:]]", ""), 1, 4), 
-                             str_replace_all(Location, "[[:alpha:]]", "")),
-           EventDate = as.Date(Date, "%m/%d/%y"),
-           EventYear = year(EventDate),
-           EventMonth = month(EventDate),
-           EventDayOfMonth = day(EventDate),
-           EventDayOfYear = yday(EventDate),
-           EventHour = hour(Time),
-           EventMinute = minute(Time)) %>%
-    group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
-    summarise(EventCount = n(), .groups = "drop")
-  
-  # Clean up some known misspellings
-  agg_df <- agg_df %>%
-    mutate(Location = ifelse(str_sub(Location, 3, 4) == "ML",
-                             str_replace(Location, "ML", "MD"),
-                             Location),
-           Final_Species = ifelse(Final_Species == "Bear",
-                                  "Black Bear", 
-                                  Final_Species))
+  #### Process old data ####
+  # If the data is the old format (Camelot), clean data the old way
+  if ("Location" %in% colnames(event_df))
+  {
+    # Should we remove missing IDs?
+    # What is an EventType? Does it have any significance? 
+    agg_df <- events_df %>%
+      drop_na(ID, Date) %>%
+      mutate(Final_Species = ifelse(is.na(Final_Species), 
+                                    "Unknown",
+                                    Final_Species),
+             # Need to remove some extra letters so things match up. (H, G, F... specifically from Stockton Island)
+             # This takes the 3rd and 4th index and joins it to all numeric values then sets it to lower case (CNSTE01 -> st01)
+             Location = str_to_lower(paste0(str_sub(Location, 3, 4), 
+                                            str_replace_all(Location, "[[:alpha:]]", ""))),
+             EventDate = as.Date(Date, "%m/%d/%y"),
+             EventYear = year(EventDate),
+             EventMonth = month(EventDate),
+             EventDayOfMonth = day(EventDate),
+             EventDayOfYear = yday(EventDate),
+             EventHour = hour(Time),
+             EventMinute = minute(Time)) %>%
+      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
+      summarise(EventCount = n(), .groups = "drop")
+    
+    # Clean up some known misspellings
+    agg_df <- agg_df %>%
+      mutate(Location = ifelse(str_sub(Location, 3, 4) == "ML",
+                               str_replace(Location, "ML", "MD"),
+                               Location),
+             Final_Species = ifelse(Final_Species == "Bear",
+                                    "Black Bear", 
+                                    Final_Species))
   
   # The above still needs to include all species
+  }
+  #### Process new data ####
+  else ## Else do it the new way
+  {
+    agg_df <- events_df %>%
+      mutate(Site = str_to_title(site_name),
+             Final_Species = ifelse(is.na(species_common_name),
+                                    "Unknown",
+                                    species_common_name),
+             Location = trap_station_name,
+             EventDateTime = ymd_hms(date_time, tz = "America/Chicago"),
+             EventDate = as.Date(EventDateTime),
+             EventYear = year(EventDate),
+             EventMonth = month(EventDate),
+             EventDayOfMonth = day(EventDate),
+             EventDayOfYear = ydat(EventDate),
+             EventHour = hour(EventDateTime),
+             EventMinute = minute(EventDateTime)) %>%
+      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
+      summarise(EventCount = n(), .groups = "drop")
+  }
 }
 
 loc_clean <- function(loc_df)
 {
   clean_loc_df <- loc_df %>%
-    mutate(location = str_to_title(location),
-           site = toupper(paste0("CN", str_replace_all(site, "[[:digit:]]", ""), str_pad(str_replace_all(site, "[[:alpha:]]", ""), 2, pad = "0")))) %>%
+    # mutate(location = str_to_title(location),
+    #        site = toupper(paste0("CN", str_replace_all(site, "[[:digit:]]", ""), str_pad(str_replace_all(site, "[[:alpha:]]", ""), 2, pad = "0")))) %>%
+    mutate(location = str_to_title(location)) %>%
     unique()
   # TODO: CNRO05 needs the longitude changed. I've been assuming it should be -90.67479
 }
@@ -86,6 +113,7 @@ build_species_plot_data <- function(loc_agg_df,
   # plot_df is returned which should contain every month for each location at the
   # given site.
 }
+
 
 my_data <- agg_by_location(events)
 my_loc <- loc_clean(locations)
