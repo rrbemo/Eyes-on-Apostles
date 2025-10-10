@@ -23,23 +23,27 @@ function(input, output, clientData, session)
 {
   # The APIS boundaries 
   apis_poly <- sf::st_read("maps/APIS_boundaries.geojson")
-  event_df <- read_csv("data/Events.csv")
-  loc_df <- read_csv("data/Locations.csv")
+  #event_df <- read_csv("data/Events.csv")
+  #loc_df <- read_csv("data/Locations.csv")
+  event_df <- read_csv("data/2025-10-09_Events.csv")
+  loc_df <- read_csv("data/2025-10-09_Locations.csv")
   
-  species <- c(
-    "Bear, Black" = "Black Bear",
-    "Fisher" = "Fisher",
-    "Hare, Snowshoe" = "Snowshoe Hare",
-    "Marten, American" = "Marten",
-    "Mink" = "Mink",
-    "Otter" = "Otter", 
-    "Robin" = "Robin",
-    "Squirrel, Grey" = "Grey Squirrel",
-    "Squirrel, Red" = "Red Squirrel",
-    "Unknown" = "Unknown",
-    "Weasel, Long-tailed" = "Long-tailed weasel",
-    "Weasel, Short-tailed" = "Short-tailed weasel"
-  )
+  # species <- c(
+  #   "Bear, Black" = "Black Bear",
+  #   "Fisher" = "Fisher",
+  #   "Hare, Snowshoe" = "Snowshoe Hare",
+  #   "Marten, American" = "Marten",
+  #   "Mink" = "Mink",
+  #   "Otter" = "Otter", 
+  #   "Robin" = "Robin",
+  #   "Squirrel, Grey" = "Grey Squirrel",
+  #   "Squirrel, Red" = "Red Squirrel",
+  #   "Unknown" = "Unknown",
+  #   "Weasel, Long-tailed" = "Long-tailed weasel",
+  #   "Weasel, Short-tailed" = "Short-tailed weasel"
+  # )
+  
+  species <- read_lines("data/2025-10-09_Species.txt")
   
   # The list of ids selected (for toggling map objects)
   clicklist <- reactiveValues(filterSpeciesMap_id = vector(),
@@ -52,11 +56,18 @@ function(input, output, clientData, session)
   
   #### Map colors to species ####  
   get_color_by_final_species <- function(df) {
+    
+    my_palette <- "rcartocolor::Pastel"
+    color_count <- length(paletteer_d(my_palette))
+    if (length(unique(species)) > color_count)
+    {
+      print("TOO MANY SPECIES!! Only displaying the first 12!!")
+    }
     # Get the color palette
     #cols <- RColorBrewer::brewer.pal(length(unique(species)), name = "Pastel1")
-    cols <- paletteer_d("rcartocolor::Pastel", length(unique(species)))
+    cols <- paletteer_d(my_palette, min(length(unique(species)), color_count))
     # Add a SpeciesColor column to the dataset
-    species_color <- data.frame(Species_Name = unique(species),
+    species_color <- data.frame(Species_Name = head(unique(species), color_count),
                                 SpeciesColor = as.character(cols))
     
     df <- df %>%
@@ -690,14 +701,14 @@ function(input, output, clientData, session)
       
       lat_center = 46.97
       lon_center = -90.70
-      lat_buffer = 5.0
-      lon_buffer = 8.0
+      lat_buffer = 2.0
+      lon_buffer = 4.0
       l_plot %>%
-        setView(lon_center, lat_center, zoom = 11) %>%
+        setView(lon_center, lat_center, zoom = 10) %>%
         setMaxBounds(lng1 = lon_center + lon_buffer,
                      lat1 = lat_center + lat_buffer,
-                     lng2 = lon_center - (1.25 * lon_buffer),
-                     lat2 = lat_center - (1.75 * lat_buffer))
+                     lng2 = lon_center - lon_buffer,
+                     lat2 = lat_center - lat_buffer)
     })
   output$filterSpeciesMap <- renderLeaflet({
       # pull in data
@@ -782,14 +793,14 @@ function(input, output, clientData, session)
       
       lat_center = 46.97
       lon_center = -90.70
-      lat_buffer = 5.0
-      lon_buffer = 8.0
+      lat_buffer = 2.0
+      lon_buffer = 4.0
       l_plot %>%
-        setView(lon_center, lat_center, zoom = 11) %>%
+        setView(lon_center, lat_center, zoom = 10) %>%
         setMaxBounds(lng1 = lon_center + lon_buffer,
                      lat1 = lat_center + lat_buffer,
-                     lng2 = lon_center - (1.25 * lon_buffer),
-                     lat2 = lat_center - (1.75 * lat_buffer))
+                     lng2 = lon_center - lon_buffer,
+                     lat2 = lat_center - lat_buffer)
     })
   
   

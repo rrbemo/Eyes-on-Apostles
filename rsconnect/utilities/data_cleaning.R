@@ -2,30 +2,33 @@ library(tidyverse)
 library(lubridate)
 library(plotly)
 
-locations <- read_csv("data/CT_loci.csv")
-events <- read_csv("data/PA_all_full.csv")
-event_types <- unique(events$EventType)
-species <- unique(events$Final_Species)
-sites <- unique(events$Site)
+#locations <- read_csv("data/CT_loci.csv") # old file
+#events <- read_csv("data/PA_all_full.csv") # old file
+locations <- read_csv("data/apis_camera_location.csv")
+events <- read_csv("data/df1_combined_cleaned.csv")
+
+#event_types <- unique(events$EventType)
+#species <- unique(events$Final_Species)
+#sites <- unique(events$Site)
 
 head(locations)
 head(events)
-print(species)
-print(event_types)
+#print(species)
+#print(event_types)
 
 #### Aggregate by location ####
 agg_by_location <- function(events_df)
 {
   #### Process old data ####
   # If the data is the old format (Camelot), clean data the old way
-  if ("Location" %in% colnames(event_df))
+  if ("Location" %in% colnames(events_df))
   {
     # Should we remove missing IDs?
     # What is an EventType? Does it have any significance? 
     agg_df <- events_df %>%
       drop_na(ID, Date) %>%
       mutate(Final_Species = ifelse(is.na(Final_Species), 
-                                    "Unknown",
+                                    "Not Specified",
                                     Final_Species),
              # Need to remove some extra letters so things match up. (H, G, F... specifically from Stockton Island)
              # This takes the 3rd and 4th index and joins it to all numeric values then sets it to lower case (CNSTE01 -> st01)
@@ -58,19 +61,23 @@ agg_by_location <- function(events_df)
     agg_df <- events_df %>%
       mutate(Site = str_to_title(site_name),
              Final_Species = ifelse(is.na(species_common_name),
-                                    "Unknown",
+                                    "Not Specified",
                                     species_common_name),
              Location = trap_station_name,
-             EventDateTime = ymd_hms(date_time, tz = "America/Chicago"),
+             EventDateTime = ymd_hms(date_time, truncated = 3, tz = "America/Chicago"), # truncated parameter allows for missing times
              EventDate = as.Date(EventDateTime),
              EventYear = year(EventDate),
              EventMonth = month(EventDate),
              EventDayOfMonth = day(EventDate),
-             EventDayOfYear = ydat(EventDate),
+             EventDayOfYear = yday(EventDate),
              EventHour = hour(EventDateTime),
              EventMinute = minute(EventDateTime)) %>%
       group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
       summarise(EventCount = n(), .groups = "drop")
+    
+    # Replace _ with " " and set all names to title case
+    agg_df <- agg_df %>%
+      mutate(Final_Species = str_to_title(str_replace_all(Final_Species, "_", " ")))
   }
 }
 
@@ -82,6 +89,13 @@ loc_clean <- function(loc_df)
     mutate(location = str_to_title(location)) %>%
     unique()
   # TODO: CNRO05 needs the longitude changed. I've been assuming it should be -90.67479
+}
+
+build_species_list <- function(cleaned_events_df)
+{
+  species <- cleaned_events_df$Final_Species %>%
+    unique() %>%
+    str_sort()
 }
 
 build_species_plot_data <- function(loc_agg_df,
@@ -117,20 +131,26 @@ build_species_plot_data <- function(loc_agg_df,
 
 my_data <- agg_by_location(events)
 my_loc <- loc_clean(locations)
-write_csv(my_data, "data/Events.csv")
-write_csv(my_loc, "data/Locations.csv")
+species_list <- build_species_list(my_data)
+write_csv(my_data, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Events.csv"))
+write_csv(my_loc, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Locations.csv"))
+write_lines(species_list, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Species.txt"))
 
-this_site = sites[3]
-this_species = species[3]
 
-plot_df <- build_species_plot_data(my_data,
-                                   this_site,
-                                   this_species)
-
-plot_ly(plot_df, x = ~EventMonth, y = ~MonthCount, color = ~Location,
-        type = "scatter",
-        mode = "lines+markers") %>%
-  layout(title = sprintf("Monthly detections of %s at %s Site", this_species, this_site),
-         xaxis = list(title = "Month"),
-         yaxis = list(title = "Detections"))
+plot_site <- function(site_id, species_name) 
+{
   
+  plot_df <- build_species_plot_data(my_data,
+                                     this_site,
+                                     this_species)
+  
+  plot_ly(plot_df, x = ~EventMonth, y = ~MonthCount, color = ~Location,
+          type = "scatter",
+          mode = "lines+markers") %>%
+    layout(title = sprintf("Monthly detections of %s at %s Site", this_species, this_site),
+           xaxis = list(title = "Month"),
+           yaxis = list(title = "Detections"))
+}
+
+# This will plot the site and species 3
+#plot_site(my_data$Site[3], my_data$FinalSpecies[3])

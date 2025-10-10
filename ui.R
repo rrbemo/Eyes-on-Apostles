@@ -9,24 +9,27 @@ library(shinythemes)
 library(tidyverse, quietly = TRUE)
 library(plotly)
 library(leaflet)
+library(stringr)
 
 #### Applicaton level variables ####
-species <- c(
-  "Bear, Black" = "Black Bear",
-  "Fisher" = "Fisher",
-  "Hare, Snowshoe" = "Snowshoe Hare",
-  "Marten, American" = "Marten",
-  "Mink" = "Mink",
-  "Otter" = "Otter", 
-  "Robin" = "Robin",
-  "Squirrel, Grey" = "Grey Squirrel",
-  "Squirrel, Red" = "Red Squirrel",
-  #"Unknown" = "Unknown",
-  "Weasel, Long-tailed" = "Long-tailed weasel",
-  "Weasel, Short-tailed" = "Short-tailed weasel"
-)
+# species <- c(
+#   "Bear, Black" = "Black Bear",
+#   "Fisher" = "Fisher",
+#   "Hare, Snowshoe" = "Snowshoe Hare",
+#   "Marten, American" = "Marten",
+#   "Mink" = "Mink",
+#   "Otter" = "Otter", 
+#   "Robin" = "Robin",
+#   "Squirrel, Grey" = "Grey Squirrel",
+#   "Squirrel, Red" = "Red Squirrel",
+#   #"Unknown" = "Unknown",
+#   "Weasel, Long-tailed" = "Long-tailed weasel",
+#   "Weasel, Short-tailed" = "Short-tailed weasel"
+# )
 
-year_range <- c("2014", "2018")
+species <- read_lines("data/2025-10-09_Species.txt")
+
+year_range <- c("2014", "2024")
   
 #### Dashboard UI ####
 dashboardPage(
@@ -82,7 +85,7 @@ dashboardPage(
                      radioGroupButtons("species",
                                        label = list(icon("paw", lib = "font-awesome"), " Select species to view:"),
                                        choices = species,
-                                       selected = "Marten",
+                                       selected = species[1],
                                        direction = "vertical",
                                        justified = TRUE,
                                        status = "primary"),
