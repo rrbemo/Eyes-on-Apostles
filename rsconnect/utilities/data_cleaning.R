@@ -5,7 +5,11 @@ library(plotly)
 #locations <- read_csv("data/CT_loci.csv") # old file
 #events <- read_csv("data/PA_all_full.csv") # old file
 locations <- read_csv("data/apis_camera_location.csv")
-events <- read_csv("data/df1_combined_cleaned.csv")
+#events <- read_csv("data/df1_combined_cleaned.csv")
+events <- read_csv("data/apis_data_2015_2023_descriptive.csv")
+# convert common_name to species_common_name for reverse compatability
+events <- events %>%
+  mutate(species_common_name = common_name)
 
 #event_types <- unique(events$EventType)
 #species <- unique(events$Final_Species)
@@ -40,8 +44,11 @@ agg_by_location <- function(events_df)
              EventDayOfMonth = day(EventDate),
              EventDayOfYear = yday(EventDate),
              EventHour = hour(Time),
-             EventMinute = minute(Time)) %>%
-      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
+             EventMinute = minute(Time),
+             Category = category,
+             Eco_Role = primary_eco_role,
+             Winter_Active = winter_active > 0) %>%
+      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species, Category, Eco_Role, Winter_Active) %>%
       summarise(EventCount = n(), .groups = "drop")
     
     # Clean up some known misspellings
@@ -71,8 +78,11 @@ agg_by_location <- function(events_df)
              EventDayOfMonth = day(EventDate),
              EventDayOfYear = yday(EventDate),
              EventHour = hour(EventDateTime),
-             EventMinute = minute(EventDateTime)) %>%
-      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species) %>%
+             EventMinute = minute(EventDateTime),
+             Category = category,
+             Eco_Role = primary_eco_role,
+             Winter_Active = winter_active > 0) %>%
+      group_by(Site, Location, EventDate, EventYear, EventMonth, EventDayOfMonth, EventDayOfYear, EventHour, EventMinute, Final_Species, Category, Eco_Role, Winter_Active) %>%
       summarise(EventCount = n(), .groups = "drop")
     
     # Replace _ with " " and set all names to title case
@@ -94,6 +104,27 @@ loc_clean <- function(loc_df)
 build_species_list <- function(cleaned_events_df)
 {
   species <- cleaned_events_df$Final_Species %>%
+    unique() %>%
+    str_sort()
+}
+
+build_category_list <- function(cleaned_events_df)
+{
+  category <- cleaned_events_df$Category %>%
+    unique() %>%
+    str_sort()
+}
+
+build_eco_role_list <- function(cleaned_events_df)
+{
+  category <- cleaned_events_df$Eco_Role %>%
+    unique() %>%
+    str_sort()
+}
+
+build_winter_active_list <- function(cleaned_events_df)
+{
+  category <- cleaned_events_df$Winter_Active %>%
     unique() %>%
     str_sort()
 }
@@ -132,9 +163,15 @@ build_species_plot_data <- function(loc_agg_df,
 my_data <- agg_by_location(events)
 my_loc <- loc_clean(locations)
 species_list <- build_species_list(my_data)
+category_list <- build_category_list(my_data)
+eco_role_list <- build_eco_role_list(my_data)
+winter_active_list <- build_winter_active_list(my_data)
 write_csv(my_data, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Events.csv"))
 write_csv(my_loc, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Locations.csv"))
 write_lines(species_list, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Species.txt"))
+write_lines(category_list, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Category.txt"))
+write_lines(eco_role_list, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Eco_Role.txt"))
+write_lines(winter_active_list, paste0("data/", format(Sys.Date(), "%Y-%m-%d"), "_Winter_Active.txt"))
 
 
 plot_site <- function(site_id, species_name) 

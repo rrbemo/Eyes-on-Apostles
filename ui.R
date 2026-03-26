@@ -27,7 +27,8 @@ library(stringr)
 #   "Weasel, Short-tailed" = "Short-tailed weasel"
 # )
 
-species <- read_lines("data/2025-10-09_Species.txt")
+#species <- read_lines("data/2025-10-09_Species.txt")
+species <- read_lines("data/2025-11-14_Species.txt")
 
 year_range <- c("2014", "2024")
   
@@ -77,18 +78,29 @@ dashboardPage(
       
       tabBox(width = 12,
              tabPanel(
-               title = "Filter By Species",
+               title = "Filter By Animal",
                id = "filterSpecies",
                fluidRow(
                  box(width = 2,
-                     # Species
-                     radioGroupButtons("species",
-                                       label = list(icon("paw", lib = "font-awesome"), " Select species to view:"),
-                                       choices = species,
-                                       selected = species[1],
+                     #TODO: Make some sort of toggle here where you can select
+                     # Species, category, or other species descriptors.
+                     radioGroupButtons("filter_option",
+                                       label = "Select filter type",
+                                       choiceNames = c("Species", "Category", "Ecological Role", "Winter Activity"),
+                                       choiceValues = c("species", "category", "eco_role", "winter_active"),
+                                       selected = "species",
                                        direction = "vertical",
                                        justified = TRUE,
                                        status = "primary"),
+                     # Dynamic filtering
+                     uiOutput("filter_buttons"),
+                     # radioGroupButtons("species",
+                     #                   label = list(icon("paw", lib = "font-awesome"), " Select filter to view:"),
+                     #                   choices = species,
+                     #                   selected = species[1],
+                     #                   direction = "vertical",
+                     #                   justified = TRUE,
+                     #                   status = "primary"),
                      # TODO: add a time selector
                      sliderInput("date_range", 
                                  label = list(icon("calendar-alt", lib = "font-awesome")," Select date range of data:"),
@@ -101,7 +113,7 @@ dashboardPage(
                      htmlOutput("filterSpeciesMapSubtitle"),
                      leafletOutput("filterSpeciesMap", height = 640) %>% withSpinner(),
                      tags$br(),
-                     tags$p("Select a species to presnece and abscense across islands and camera sites. Below are plots of
+                     tags$p("Select a species to presence and abscense across islands and camera sites. Below are plots of
                             detections over time, by moth, and by hour.")
                  ),
                  box(width = 12,

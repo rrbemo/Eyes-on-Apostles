@@ -25,25 +25,16 @@ function(input, output, clientData, session)
   apis_poly <- sf::st_read("maps/APIS_boundaries.geojson")
   #event_df <- read_csv("data/Events.csv")
   #loc_df <- read_csv("data/Locations.csv")
-  event_df <- read_csv("data/2025-10-09_Events.csv")
-  loc_df <- read_csv("data/2025-10-09_Locations.csv")
+  #event_df <- read_csv("data/2025-10-09_Events.csv")
+  #loc_df <- read_csv("data/2025-10-09_Locations.csv")
+  #species <- read_lines("data/2025-10-09_Species.txt")
+  event_df <- read_csv("data/2025-11-15_Events.csv")
+  loc_df <- read_csv("data/2025-11-15_Locations.csv")
+  species <- read_lines("data/2025-11-15_Species.txt")
+  category <- read_lines("data/2025-11-15_Category.txt")
+  eco_role <- read_lines("data/2025-11-15_Eco_Role.txt")
+  winter_active <- read_lines("data/2025-11-15_Winter_Active.txt")
   
-  # species <- c(
-  #   "Bear, Black" = "Black Bear",
-  #   "Fisher" = "Fisher",
-  #   "Hare, Snowshoe" = "Snowshoe Hare",
-  #   "Marten, American" = "Marten",
-  #   "Mink" = "Mink",
-  #   "Otter" = "Otter", 
-  #   "Robin" = "Robin",
-  #   "Squirrel, Grey" = "Grey Squirrel",
-  #   "Squirrel, Red" = "Red Squirrel",
-  #   "Unknown" = "Unknown",
-  #   "Weasel, Long-tailed" = "Long-tailed weasel",
-  #   "Weasel, Short-tailed" = "Short-tailed weasel"
-  # )
-  
-  species <- read_lines("data/2025-10-09_Species.txt")
   
   # The list of ids selected (for toggling map objects)
   clicklist <- reactiveValues(filterSpeciesMap_id = vector(),
@@ -56,12 +47,12 @@ function(input, output, clientData, session)
   
   #### Map colors to species ####  
   get_color_by_final_species <- function(df) {
-    
+    # Use color_count to only show the maximum number of colors available.
     my_palette <- "rcartocolor::Pastel"
     color_count <- length(paletteer_d(my_palette))
     if (length(unique(species)) > color_count)
     {
-      print("TOO MANY SPECIES!! Only displaying the first 12!!")
+      print(paste0("TOO MANY SPECIES!! Only displaying the first ", color_count, "!!"))
     }
     # Get the color palette
     #cols <- RColorBrewer::brewer.pal(length(unique(species)), name = "Pastel1")
@@ -71,7 +62,8 @@ function(input, output, clientData, session)
                                 SpeciesColor = as.character(cols))
     
     df <- df %>%
-      left_join(species_color, by = c("Final_Species" = "Species_Name"))
+      left_join(species_color, by = c("Final_Species" = "Species_Name")) %>%
+      drop_na(SpeciesColor) # Drop all species that don't have a color
     
     return(df)
   }
@@ -79,18 +71,53 @@ function(input, output, clientData, session)
   #### Reactive data objects ####
   presab <- reactive({
     events <- event_df
-    selected_species <- input$species
-
     date_min <- FirstDayInMonth(as.Date(input$date_range[1]))
     date_max <- FirstDayInMonth(as.Date(input$date_range[2]))
     
-    presab <- events %>%
-      filter(EventDate >= date_min & EventDate <= date_max,
-             Final_Species == selected_species) %>%
-      group_by(Final_Species, Site, Location) %>%
-      summarize(presab = n())
+    ## Filter based on the filter options
+    filter_type_selected = input$filter_option
+    filter_selected <- input$filtered_on
+    
+    if (filter_type_selected == "species")
+    {
+      presab <- events %>%
+        filter(EventDate >= date_min & EventDate <= date_max,
+               Final_Species == filter_selected) %>%
+        group_by(Final_Species, Site, Location) %>%
+        summarize(presab = n())
+    }
+    else if (filter_type_selected == "category")
+    {
+      presab <- events %>%
+        filter(EventDate >= date_min & EventDate <= date_max,
+               Category == filter_selected) %>%
+        group_by(Final_Species, Site, Location) %>%
+        summarize(presab = n())
+    }
+    else if (filter_type_selected == "eco_role")
+    {
+      
+      presab <- events %>%
+        filter(EventDate >= date_min & EventDate <= date_max,
+               Eco_Role == filter_selected) %>%
+        group_by(Final_Species, Site, Location) %>%
+        summarize(presab = n())
+      
+    }
+    else if (filter_type_selected == "winter_active")
+    {
+      presab <- events %>%
+        filter(EventDate >= date_min & EventDate <= date_max,
+               Winter_Active == filter_selected) %>%
+        group_by(Final_Species, Site, Location) %>%
+        summarize(presab = n())
+    }
 
-  }) %>% bindEvent(input$species, input$date_range, ignoreNULL = FALSE)
+    
+    return(presab)
+# 
+#   }) %>% bindEvent(input$species, input$date_range, ignoreNULL = FALSE)
+  }) %>% bindEvent(input$filtered_on, input$date_range, ignoreNULL = FALSE)
   
   detections_by_hour <- reactive({
     
@@ -104,7 +131,7 @@ function(input, output, clientData, session)
       arrange(EventHour)
     
     events_by_hour <- events %>%
-      group_by(Final_Species, EventHour) %>%
+      group_by(Final_Species, Category, Eco_Role, Winter_Active, EventHour) %>%
       summarize(detection_count = sum(EventCount), .groups = "drop") %>% 
       bind_rows(time_only_df)
     
@@ -115,7 +142,8 @@ function(input, output, clientData, session)
       drop_na() 
     
     return(events_by_hour)
-  }) %>% bindEvent(input$species, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
+  # }) %>% bindEvent(input$species, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
+  }) %>% bindEvent(input$filtered_on, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
   
   detections_over_time <- reactive({
     clicked_items <- clicklist[["allSpeciesMap_id"]]
@@ -137,7 +165,7 @@ function(input, output, clientData, session)
       arrange(EventYear, EventMonth)
     
     events_over_time <- events %>%
-      group_by(Final_Species, EventYear, EventMonth) %>%
+      group_by(Final_Species, Category, Eco_Role, Winter_Active, EventYear, EventMonth) %>%
       summarize(detection_count = sum(EventCount), .groups = "drop") %>% 
       bind_rows(date_only_df) %>%
       mutate(EventDate = as.Date(paste(EventYear, 
@@ -152,13 +180,14 @@ function(input, output, clientData, session)
       filter(Final_Species != "TEST") # Remove the data to get all months and years.
     
     return(events_over_time)
-  }) %>% bindEvent(input$species, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
+  # }) %>% bindEvent(input$species, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
+  }) %>% bindEvent(input$filtered_on, clicklist$allSpeciesMap_id, ignoreNULL = FALSE)
   
   detections_by_month <- reactive({
     detections_over_time <- detections_over_time()
     
     detections_by_month <- detections_over_time %>%
-      group_by(Final_Species, EventMonth) %>%
+      group_by(Final_Species, Category, Eco_Role, Winter_Active, EventMonth) %>%
       summarize(detection_count = sum(detection_count), .groups = "drop") %>%
       drop_na()
     
@@ -169,6 +198,27 @@ function(input, output, clientData, session)
   # groupToData <- c("Islands" = apis_poly,
   #                  "Camera Sites" = loc_df)
   # 
+  
+  #### Dynamic Filter UI ####
+  output$filter_buttons <- renderUI({
+    filter_by <- input$filter_option
+    filter_by_data <- eval(parse(text=filter_by))
+    
+    print(paste("This is:", filter_by))
+    print(paste("The data is:", filter_by_data))
+    
+    tagList(
+      dropdown(
+        label = list(icon("paw", lib = "font-awesome"), " Select filter to view:"),
+        radioGroupButtons("filtered_on",
+                          choices = filter_by_data,
+                          selected = filter_by_data[1],
+                          direction = "vertical",
+                          justified = TRUE,
+                          status = "primary"),
+      )
+    )
+  })
   
   #### Map Selections ####
   
@@ -513,12 +563,53 @@ function(input, output, clientData, session)
   # Filtered by species selection
   output$plotFilterSpeciesOverTime <- renderPlotly({
     
-    # Get the selected species
-    species_selected <- input$species
+    ## Filter based on the filter options
+    filter_type_selected = input$filter_option
+    filter_selected <- input$filtered_on
     
-    # Filter by the selected species
-    detections_df <- detections_over_time() %>%
-      filter(Final_Species == species_selected)
+    if (filter_type_selected == "species")
+    {
+      # print(detections_over_time())
+      # print(filter_selected)
+      # Filter by the selected species
+      detections_df <- detections_over_time() %>%
+        filter(Final_Species == filter_selected)
+      
+      print(detections_df)
+      
+      plot_title <- paste(filter_selected, "detections over time, aggregated by month")
+    }
+    else if (filter_type_selected == "category")
+    {
+      detections_df <- detections_over_time() %>%
+        filter(Category == filter_selected) %>%
+        group_by(EventYear, EventMonth, EventDate) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventDate)
+      
+      plot_title <- paste(filter_selected, "detections over time, aggregated by month")
+    }
+    else if (filter_type_selected == "eco_role")
+    {
+      detections_df <- detections_over_time() %>%
+        filter(Eco_Role == filter_selected) %>%
+        group_by(EventYear, EventMonth, EventDate) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventDate)
+      
+      plot_title <- paste(filter_selected, "detections over time, aggregated by month")
+      
+    }
+    else if (filter_type_selected == "winter_active")
+    {
+      detections_df <- detections_over_time() %>%
+        filter(Winter_Active == filter_selected) %>%
+        group_by(EventYear, EventMonth, EventDate) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventDate)
+      
+      plot_title <- paste("Active during winter ==", filter_selected, "detections over time, aggregated by month")
+    }
     
     # Only show plot if there are detections
     validate(
@@ -535,9 +626,9 @@ function(input, output, clientData, session)
                 line = list(color = "darkgreen"),
                 hoverinfo = 'text',
                 text = ~paste0(month.name[EventMonth], " ", EventYear, "\n",
-                               Final_Species, "\n", 
+                               # Final_Species, "\n", 
                                "Detections: ", format(detection_count, big.mark = ","))) %>%
-      layout(title = paste(species_selected, "detections over time, aggregated by month"),
+      layout(title = plot_title,
              margin = list(t = 70, r = 60),
              xaxis = list(title = FALSE),
              yaxis = list(title = "Detections"),
@@ -546,13 +637,53 @@ function(input, output, clientData, session)
                            y = -0.1))
   })
   output$plotFilterSpeciesByMonth <- renderPlotly({
+    ## Filter based on the filter options
+    filter_type_selected = input$filter_option
+    filter_selected <- input$filtered_on
     
-    # Get the selected species
-    species_selected <- input$species
-    
-    # Filter by the selected species
-    byMonth_df <- detections_by_month() %>%
-      filter(Final_Species == species_selected)
+    if (filter_type_selected == "species")
+    {
+      # print(detections_over_time())
+      # print(filter_selected)
+      # Filter by the selected species
+      byMonth_df <- detections_by_month() %>%
+        filter(Final_Species == filter_selected)
+      
+      print(byMonth_df)
+      
+      plot_title <- paste(filter_selected, "detections by month")
+    }
+    else if (filter_type_selected == "category")
+    {
+      byMonth_df <- detections_by_month() %>%
+        filter(Category == filter_selected) %>%
+        group_by(EventMonth) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventMonth)
+      
+      plot_title <- paste(filter_selected, "detections by month")
+    }
+    else if (filter_type_selected == "eco_role")
+    {
+      byMonth_df <- detections_by_month() %>%
+        filter(Eco_Role == filter_selected) %>%
+        group_by(EventMonth) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventMonth)
+      
+      plot_title <- paste(filter_selected, "detections by month")
+      
+    }
+    else if (filter_type_selected == "winter_active")
+    {
+      byMonth_df <- detections_by_month() %>%
+        filter(Winter_Active == filter_selected) %>%
+        group_by(EventMonth) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventMonth)
+      
+      plot_title <- paste("Active during winter ==", filter_selected, "detections by month")
+    }
     
     # Only show plot if there are detections
     validate(
@@ -568,9 +699,9 @@ function(input, output, clientData, session)
                 line = list(color = "darkgreen"),
                 hoverinfo = 'text',
                 text = ~paste0(month.name[EventMonth], "\n",
-                               Final_Species, "\n", 
+                               # Final_Species, "\n", 
                                "Detections: ", format(detection_count, big.mark = ","))) %>%
-      layout(title = paste(species_selected, "detections by month"),
+      layout(title = plot_title,
              margin = list(t = 70, r = 60),
              xaxis = list(title = FALSE,
                           range = c(1, 12),
@@ -583,13 +714,54 @@ function(input, output, clientData, session)
                            y = -0.1))
   })
   output$plotFilterSpeciesByHour <- renderPlotly({
+  
+    ## Filter based on the filter options
+    filter_type_selected = input$filter_option
+    filter_selected <- input$filtered_on
     
-    # Get the selected species
-    species_selected <- input$species
-    
-    # Filter by the selected species
-    byHour_df <- detections_by_hour() %>%
-      filter(Final_Species == species_selected)
+    if (filter_type_selected == "species")
+    {
+      # print(detections_over_time())
+      # print(filter_selected)
+      # Filter by the selected species
+      byHour_df <- detections_by_hour() %>%
+        filter(Final_Species == filter_selected)
+      
+      print(byHour_df)
+      
+      plot_title <- paste(filter_selected, "detections by hour")
+    }
+    else if (filter_type_selected == "category")
+    {
+      byHour_df <- detections_by_hour() %>%
+        filter(Category == filter_selected) %>%
+        group_by(EventHour) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventHour)
+      
+      plot_title <- paste(filter_selected, "detections by hour")
+    }
+    else if (filter_type_selected == "eco_role")
+    {
+      byHour_df <- detections_by_hour() %>%
+        filter(Eco_Role == filter_selected) %>%
+        group_by(EventHour) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventHour)
+      
+      plot_title <- paste(filter_selected, "detections by hour")
+      
+    }
+    else if (filter_type_selected == "winter_active")
+    {
+      byHour_df <- detections_by_hour() %>%
+        filter(Winter_Active == filter_selected) %>%
+        group_by(EventHour) %>%
+        summarize(detection_count = sum(detection_count), .groups = "drop") %>% 
+        arrange(EventHour)
+      
+      plot_title <- paste("Active during winter ==", filter_selected, "detections by hour")
+    }
     
     clicked_items <- clicklist[["filterSpeciesMap_id"]]
     
@@ -612,11 +784,11 @@ function(input, output, clientData, session)
                  x = ~EventHour,
                  y = ~detection_count,
                  height = "800") %>%
-      add_trace(name = species_selected, type = "scatter", mode = "lines",
+      add_trace(name = filter_selected, type = "scatter", mode = "lines",
                 line = list(color = "darkgreen"),
                 hoverinfo = 'text',
                 text = ~paste0(EventHour, ":00\n",
-                               Final_Species, "\n", 
+                               #Final_Species, "\n", 
                                "Detections: ", format(detection_count, big.mark = ","))) %>%
       add_trace(name = "Night (Shortest Day of Year)", 
                 type = "bar",
@@ -638,7 +810,7 @@ function(input, output, clientData, session)
                 offset = 0,
                 marker = list(color = "black"),
                 opacity = 0.2) %>%
-      layout(title = paste(species_selected, "detections by hour"),
+      layout(title = plot_title,
              margin = list(t = 70, r = 60),
              xaxis = list(title = FALSE,
                           range = c(0, 23),
@@ -712,7 +884,8 @@ function(input, output, clientData, session)
     })
   output$filterSpeciesMap <- renderLeaflet({
       # pull in data
-      selected_species <- input$species
+      # species_selected <- input$species
+      species_selected <- input$filtered_on
       presab_df <- presab()
       
       pres_island_poly <- apis_poly %>%
