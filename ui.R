@@ -30,6 +30,15 @@ library(stringr)
 #species <- read_lines("data/2025-10-09_Species.txt")
 species <- read_lines("data/2025-11-14_Species.txt")
 
+# List of species to accept, skipping the name column
+species_list <- read_lines("configs/species_list.txt")
+species_list <- species_list[trimws(species_list) != ""] # Removes whitespace lines
+# Failsafe if species list is empty, use all species
+if (length(species_list) < 1)
+{
+  species_list <- species
+}
+
 year_range <- c("2014", "2024")
   
 #### Dashboard UI ####
@@ -83,23 +92,29 @@ dashboardPage(
                  box(width = 2,
                      #TODO: Make some sort of toggle here where you can select
                      # Species, category, or other species descriptors.
-                     radioGroupButtons("filter_option",
-                                       label = "Select filter type",
-                                       choiceNames = c("Species"), #, "Category", "Ecological Role", "Winter Activity"),
-                                       choiceValues = c("species"), #, "category", "eco_role", "winter_active"),
-                                       selected = "species",
-                                       direction = "vertical",
-                                       justified = TRUE,
-                                       status = "primary"),
-                     # Dynamic filtering
-                     uiOutput("filter_buttons"),
-                     # radioGroupButtons("species",
-                     #                   label = list(icon("paw", lib = "font-awesome"), " Select filter to view:"),
-                     #                   choices = species,
-                     #                   selected = species[1],
+                     # radioGroupButtons("filter_option",
+                     #                   label = "Select filter type",
+                     #                   choiceNames = c("Species",  "Category", "Ecological Role", "Winter Activity"),
+                     #                   choiceValues = c("species", "category", "eco_role", "winter_active"),
+                     #                   selected = "species",
                      #                   direction = "vertical",
                      #                   justified = TRUE,
                      #                   status = "primary"),
+                     # Dynamic filtering
+                     #uiOutput("filter_buttons"),
+                     
+                     # Replace the filter radio option with a hidden input that always passes species.
+                     conditionalPanel(
+                       condition = "false",
+                       textInput("filter_option", label = NULL, value = "species"),
+                     ),
+                     radioGroupButtons("filtered_on",
+                                       label = list(icon("paw", lib = "font-awesome"), " Select filter to view:"),
+                                       choices = species_list,
+                                       selected = species_list[1],
+                                       direction = "vertical",
+                                       justified = TRUE,
+                                       status = "primary"),
                      # TODO: add a time selector
                      sliderInput("date_range", 
                                  label = list(icon("calendar-alt", lib = "font-awesome")," Select date range of data:"),

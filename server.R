@@ -22,9 +22,6 @@ FirstDayInMonth <- function(x) {
 # TODO: associate species with colors. All plots showing species A should show the same color.
 function(input, output, clientData, session)
 {
-  # List of species to accept, skipping the name column
-  species_list <- read_lines("configs/species_list.txt")
-  species_list <- species_list[trimws(species_list) != ""] # Removes whitespace lines
   
   # The APIS boundaries 
   apis_poly <- sf::st_read("maps/APIS_boundaries.geojson")
@@ -40,6 +37,9 @@ function(input, output, clientData, session)
   eco_role <- read_lines("data/2025-11-15_Eco_Role.txt")
   winter_active <- read_lines("data/2025-11-15_Winter_Active.txt")
   
+  # List of species to accept, skipping the name column
+  species_list <- read_lines("configs/species_list.txt")
+  species_list <- species_list[trimws(species_list) != ""] # Removes whitespace lines
   # Failsafe if species list is empty, use all species
   if (length(species_list) < 1)
   {
@@ -53,6 +53,8 @@ function(input, output, clientData, session)
  
   observeEvent(clicklist$allSpeciesMap_id, {
     
+  # get around filter option
+  filter_option <- "species"
     #print(detections_over_time())
   })
   
