@@ -36,10 +36,10 @@ year_range <- c("2014", "2024")
 dashboardPage(
   title = "Eye on Apostles",
   #skin = "green",
-  dashboardHeader(title = "<icon here?>", #tags$img(src = "Icon.png", width = "100px", style = "float: left; margin: 10px;"),
-                  titleWidth = 150,
-                  tags$li(class = "dropdown",
-                          actionLink("shareModal", label = "Share ", icon = icon("share-alt-square"))),
+  dashboardHeader(title = "Eyes-on-Apostles", #tags$img(src = "Icon.png", width = "100px", style = "float: left; margin: 10px;"),
+                  titleWidth = 300,
+                  # tags$li(class = "dropdown",
+                  #         actionLink("shareModal", label = "Share ", icon = icon("share-alt-square"))),
                   tags$li(class = "dropdown",
                           actionLink("openModal", label = "", icon = icon("info-circle")))
   ),
@@ -59,11 +59,10 @@ dashboardPage(
           status = "info",
           solidHeader = TRUE,
           collapsible = TRUE,
-          title = "Eye on Apostles",
-          column(width = 2), # More support icons can go here
-          column(width = 10,
+          title = "Trail Camera Data Dashboard",
+          column(width = 12,
                  tags$br(), tags$br(),
-                 tags$div(tags$p("This app is part of the collaborative project 
+                 tags$div(tags$p("This dashboard is part of the collaborative project 
                                  between the Apostle Island National Lakeshore (APIS) 
                                  and the University of Wisconsin-Madison (UW-Madison) 
                                  to visualize the data collected by the camera trap 
@@ -86,8 +85,8 @@ dashboardPage(
                      # Species, category, or other species descriptors.
                      radioGroupButtons("filter_option",
                                        label = "Select filter type",
-                                       choiceNames = c("Species", "Category", "Ecological Role", "Winter Activity"),
-                                       choiceValues = c("species", "category", "eco_role", "winter_active"),
+                                       choiceNames = c("Species"), #, "Category", "Ecological Role", "Winter Activity"),
+                                       choiceValues = c("species"), #, "category", "eco_role", "winter_active"),
                                        selected = "species",
                                        direction = "vertical",
                                        justified = TRUE,

@@ -3,6 +3,7 @@
 # the download, such as site data.
 
 # rsconnect::deployApp()
+# Temporary shinyapps.io site (https://bemor.shinyapps.io/eyes-on-apostles/)
 options(scipen=999)
 library(tidyverse)
 library(shinydashboard)
@@ -21,6 +22,10 @@ FirstDayInMonth <- function(x) {
 # TODO: associate species with colors. All plots showing species A should show the same color.
 function(input, output, clientData, session)
 {
+  # List of species to accept, skipping the name column
+  species_list <- read_lines("configs/species_list.txt")
+  species_list <- species_list[trimws(species_list) != ""] # Removes whitespace lines
+  
   # The APIS boundaries 
   apis_poly <- sf::st_read("maps/APIS_boundaries.geojson")
   #event_df <- read_csv("data/Events.csv")
@@ -35,6 +40,12 @@ function(input, output, clientData, session)
   eco_role <- read_lines("data/2025-11-15_Eco_Role.txt")
   winter_active <- read_lines("data/2025-11-15_Winter_Active.txt")
   
+  # Failsafe if species list is empty, use all species
+  if (length(species_list) < 1)
+  {
+    species_list <- species
+  }
+  
   
   # The list of ids selected (for toggling map objects)
   clicklist <- reactiveValues(filterSpeciesMap_id = vector(),
@@ -45,20 +56,31 @@ function(input, output, clientData, session)
     #print(detections_over_time())
   })
   
+  # INFO MODAL
+  observeEvent(input$openModal, {
+    # 3. Show the modal
+    showModal(modalDialog(
+      title = "About Eyes on Apostles",
+      "Additional information about the project and dashboard can be shown here.",
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  })
+  
   #### Map colors to species ####  
   get_color_by_final_species <- function(df) {
     # Use color_count to only show the maximum number of colors available.
     my_palette <- "rcartocolor::Pastel"
     color_count <- length(paletteer_d(my_palette))
-    if (length(unique(species)) > color_count)
+    if (length(unique(species_list)) > color_count)
     {
       print(paste0("TOO MANY SPECIES!! Only displaying the first ", color_count, "!!"))
     }
     # Get the color palette
     #cols <- RColorBrewer::brewer.pal(length(unique(species)), name = "Pastel1")
-    cols <- paletteer_d(my_palette, min(length(unique(species)), color_count))
+    cols <- paletteer_d(my_palette, min(length(unique(species_list)), color_count))
     # Add a SpeciesColor column to the dataset
-    species_color <- data.frame(Species_Name = head(unique(species), color_count),
+    species_color <- data.frame(Species_Name = head(unique(species_list), color_count),
                                 SpeciesColor = as.character(cols))
     
     df <- df %>%
@@ -123,6 +145,10 @@ function(input, output, clientData, session)
     
     events <- event_df
     
+    #Filter events over time by species list
+    events <- events %>%
+      filter(Final_Species %in% species_list)
+    
     # A set of rows to make sure complete gets all hours.
     unique_hours <- seq(0, 23)
     time_only_df <- data.frame(Final_Species = rep("TEST", 24),
@@ -148,6 +174,14 @@ function(input, output, clientData, session)
   detections_over_time <- reactive({
     clicked_items <- clicklist[["allSpeciesMap_id"]]
     events <- event_df
+    
+    #Filter events over time by species list
+    events <- events %>%
+      filter(Final_Species %in% species_list)
+    
+    print("SPECIES LIST")
+    print(species_list)
+    print(events)
     
     if (length(clicked_items) > 0) 
     {
@@ -206,6 +240,12 @@ function(input, output, clientData, session)
     
     print(paste("This is:", filter_by))
     print(paste("The data is:", filter_by_data))
+    
+    # Filter by species list if this is species filter_by
+    if (filter_by == "species")
+    {
+      filter_by_data <- filter_by_data[filter_by_data %in% species_list]
+    }
     
     tagList(
       dropdown(

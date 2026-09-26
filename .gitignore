@@ -5,3 +5,4 @@ data/*
 *.Rproj
 
 rsconnect/shinyapps.io/*
+rsconnect/connect.doit.wisc.edu/*
